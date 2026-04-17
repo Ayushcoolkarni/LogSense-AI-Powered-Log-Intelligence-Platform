@@ -1,6 +1,13 @@
 server:
   port: 8081
 
+  spring:
+  kafka:
+    bootstrap-servers: kafka:29092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
 spring:
   application:
     name: log-ingestion-service

@@ -1,20 +1,15 @@
 package com.logplatform.ingestion.controller;
 
-import com.logplatform.ingestion.dto.ApiResponse;
-import com.logplatform.ingestion.dto.BatchLogRequest;
-import com.logplatform.ingestion.dto.IngestionStatsDto;
-import com.logplatform.ingestion.dto.LogEntryDto;
+import com.logplatform.ingestion.dto.*;
 import com.logplatform.ingestion.model.LogEntry;
 import com.logplatform.ingestion.service.LogIngestionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -28,12 +23,24 @@ public class LogIngestionController {
 
     private final LogIngestionService logIngestionService;
 
+    // 🔥 ADD THIS
+    private final KafkaTemplate<String, LogEntry> kafkaTemplate;
+
     /**
      * Ingest a single log entry
      */
     @PostMapping
     public ResponseEntity<ApiResponse<LogEntry>> ingestLog(@Valid @RequestBody LogEntryDto dto) {
+
         LogEntry saved = logIngestionService.ingestLog(dto);
+
+        // 🔥 SEND TO KAFKA
+        try {
+            kafkaTemplate.send("raw-logs", saved);
+        } catch (Exception e) {
+            log.error("Kafka publish failed: {}", e.getMessage());
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Log ingested successfully", saved));
     }
@@ -43,7 +50,18 @@ public class LogIngestionController {
      */
     @PostMapping("/batch")
     public ResponseEntity<ApiResponse<Integer>> ingestBatch(@Valid @RequestBody BatchLogRequest request) {
+
         List<LogEntry> saved = logIngestionService.ingestBatch(request);
+
+        // 🔥 SEND EACH TO KAFKA
+        saved.forEach(logEntry -> {
+            try {
+                kafkaTemplate.send("raw-logs", logEntry);
+            } catch (Exception e) {
+                log.error("Kafka batch publish failed: {}", e.getMessage());
+            }
+        });
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Batch ingested successfully", saved.size()));
     }
@@ -66,6 +84,7 @@ public class LogIngestionController {
 
         PageRequest pageable = PageRequest.of(page, size, sort);
         Page<LogEntry> result = logIngestionService.queryLogs(serviceName, logLevel, pageable);
+
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
@@ -90,6 +109,7 @@ public class LogIngestionController {
 
         PageRequest pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
         Page<LogEntry> result = logIngestionService.queryByTimeRange(from, to, pageable);
+
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
