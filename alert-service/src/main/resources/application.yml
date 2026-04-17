@@ -1,0 +1,59 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: alert-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/logplatform
+    username: logplatform
+    password: logplatform123
+    hikari:
+      maximum-pool-size: 10
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: alert-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+kafka:
+  topics:
+    anomaly-events: anomaly-events
+
+alert:
+  slack:
+    enabled: ${SLACK_ENABLED:false}
+    webhook-url: ${SLACK_WEBHOOK_URL:}
+  email:
+    enabled: ${EMAIL_ENABLED:false}
+    from: alerts@logplatform.com
+    to: ${ALERT_EMAIL_TO:ops@company.com}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.logplatform: INFO

@@ -1,0 +1,54 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: rca-engine-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/logplatform
+    username: logplatform
+    password: logplatform123
+    hikari:
+      maximum-pool-size: 10
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: rca-engine
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+  task:
+    execution:
+      pool:
+        core-size: 4
+        max-size: 10
+        queue-capacity: 50
+
+kafka:
+  topics:
+    anomaly-events: anomaly-events
+
+anthropic:
+  api:
+    key: ${ANTHROPIC_API_KEY:}
+    model: claude-opus-4-20250514
+    enabled: ${ANTHROPIC_AI_ENABLED:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.logplatform: INFO
