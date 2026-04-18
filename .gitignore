@@ -6,3 +6,9 @@ dist/
 coverage/
 Dockerfile*
 docker-compose.override.yml
+.idea/
+
+target/
+
+.DS_Store
+Thumbs.db
