@@ -1,78 +1,59 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import Badge from '../layout/Badge';
-import { FileText } from 'lucide-react';
 
-export default function IncidentFeed({ incidents = [] }) {
+const sevColor = s => ({ CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#eab308', LOW: '#22c55e' }[s] || '#64748b');
+const sevBg    = s => ({ CRITICAL: '#450a0a', HIGH: '#431407', MEDIUM: '#422006', LOW: '#052e16' }[s] || '#1e293b');
+
+export default function IncidentFeed({ items = [] }) {
   const navigate = useNavigate();
 
+  if (!items.length) return (
+    <div style={{ padding: 32, textAlign: 'center', color: '#334155', fontSize: 13 }}>
+      No recent incidents
+    </div>
+  );
+
   return (
-    <div style={{
-      background: '#1e293b', border: '1px solid #334155',
-      borderRadius: 10, padding: '20px 24px',
-    }}>
-      <h3 style={{ color: '#f1f5f9', fontSize: 14, fontWeight: 600, margin: '0 0 16px' }}>
-        Recent Incidents
-      </h3>
-
-      {incidents.length === 0 && (
-        <p style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-          No recent incidents
-        </p>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {incidents.map(incident => (
-          <div
-            key={incident.id}
-            onClick={() => navigate(`/incidents/${incident.anomalyId}`)}
-            style={{
-              padding: '12px 0',
-              borderBottom: '1px solid #0f172a',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <Badge label={incident.severity} />
-                <span style={{
-                  color: '#cbd5e1', fontSize: 13, fontWeight: 500,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {incident.serviceName}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                {incident.hasRca && (
-                  <span title="RCA available" style={{ color: '#22c55e' }}>
-                    <FileText size={13} />
-                  </span>
-                )}
-                <Badge label={incident.status} />
-              </div>
-            </div>
-
-            <p style={{
-              color: '#64748b', fontSize: 12, margin: 0,
-              overflow: 'hidden', textOverflow: 'ellipsis',
-              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-            }}>
-              {incident.description}
-            </p>
-
-            <span style={{ color: '#475569', fontSize: 11 }}>
-              {incident.anomalyType?.replace(/_/g, ' ')} ·{' '}
-              {incident.detectedAt
-                ? formatDistanceToNow(parseISO(incident.detectedAt), { addSuffix: true })
-                : ''}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {items.map(inc => (
+        <div
+          key={inc.id}
+          onClick={() => navigate(`/incidents/${inc.anomalyId}`)}
+          style={{
+            background: '#0f172a', border: `1px solid ${sevColor(inc.severity)}33`,
+            borderLeft: `3px solid ${sevColor(inc.severity)}`,
+            borderRadius: 8, padding: '12px 16px', cursor: 'pointer',
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#1e293b'}
+          onMouseLeave={e => e.currentTarget.style.background = '#0f172a'}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{
+              background: sevBg(inc.severity), color: sevColor(inc.severity),
+              border: `1px solid ${sevColor(inc.severity)}44`,
+              borderRadius: 4, padding: '2px 7px', fontSize: 10, fontWeight: 700,
+            }}>{inc.severity}</span>
+            <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>{inc.serviceName}</span>
+            <span style={{ marginLeft: 'auto' }}>
+              <span style={{
+                background: '#1e3a5f', color: '#93c5fd', border: '1px solid #1e3a5f',
+                borderRadius: 4, padding: '2px 7px', fontSize: 10,
+              }}>{inc.status}</span>
             </span>
           </div>
-        ))}
-      </div>
+          <p style={{ color: '#94a3b8', fontSize: 12, margin: '0 0 4px', lineHeight: 1.5 }}>
+            {inc.description?.substring(0, 100)}{inc.description?.length > 100 ? '…' : ''}
+          </p>
+          <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#475569' }}>
+            <span>{(inc.anomalyType || '').replace(/_/g, ' ')}</span>
+            <span>·</span>
+            <span>{inc.detectedAt ? formatDistanceToNow(parseISO(inc.detectedAt), { addSuffix: true }) : ''}</span>
+            {inc.hasRca && <span style={{ color: '#6366f1' }}>· RCA available</span>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

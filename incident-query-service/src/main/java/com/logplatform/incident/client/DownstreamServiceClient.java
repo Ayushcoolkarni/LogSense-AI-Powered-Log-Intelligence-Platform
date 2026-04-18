@@ -1,5 +1,6 @@
 package com.logplatform.incident.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.logplatform.incident.dto.AnomalyDto;
 import com.logplatform.incident.dto.AlertDto;
 import com.logplatform.incident.dto.RcaReportDto;
@@ -36,18 +37,25 @@ public class DownstreamServiceClient {
 
     public List<AnomalyDto> fetchOpenAnomalies(int page, int size) {
         try {
-            Map<?, ?> response = webClient.get()
+            Map<String, Object> response = webClient.get()
                     .uri(anomalyDetectorUrl + "/api/v1/anomalies?status=OPEN&page={p}&size={s}", page, size)
                     .retrieve()
-                    .bodyToMono(Map.class)
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .timeout(Duration.ofSeconds(5))
                     .block();
 
             if (response != null && response.containsKey("content")) {
-                // Spring Page response — content field holds the list
-                log.debug("Fetched open anomalies page={}", page);
+                List<?> raw = (List<?>) response.get("content");
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+                mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                List<AnomalyDto> anomalies = raw.stream()
+                        .map(item -> mapper.convertValue(item, AnomalyDto.class))
+                        .toList();
+                log.info("Fetched {} open anomalies from anomaly-detector", anomalies.size());
+                return anomalies;
             }
-            return Collections.emptyList(); // caller uses local DB; this is for sync
+            return Collections.emptyList();
         } catch (Exception e) {
             log.error("Failed to fetch anomalies: {}", e.getMessage());
             return Collections.emptyList();
@@ -109,7 +117,7 @@ public class DownstreamServiceClient {
                     .uri(alertServiceUrl + "/api/v1/alerts?size=1000")
                     .retrieve()
                     .bodyToMono(Map.class)
-                    .timeout(Duration.ofSeconds(5))
+                    .timeout(Duration.ofSeconds(15))
                     .block();
             // In production, alert-service should expose GET /api/v1/alerts/anomaly/{id}
             return Optional.empty();

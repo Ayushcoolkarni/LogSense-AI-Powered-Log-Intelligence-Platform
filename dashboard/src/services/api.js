@@ -1,10 +1,13 @@
 import axios from 'axios';
 
-const BASE = process.env.REACT_APP_API_URL || 'http://localhost:8085';
-const INGESTION = process.env.REACT_APP_INGESTION_URL || 'http://localhost:8081';
-const ANOMALY = process.env.REACT_APP_ANOMALY_URL || 'http://localhost:8082';
+// All calls go through nginx on port 3000 — nginx proxies to the correct service
+const BASE    = process.env.REACT_APP_API_URL      || '';   // same origin → nginx
+const INGESTION = process.env.REACT_APP_INGESTION_URL || '';
+const ANOMALY   = process.env.REACT_APP_ANOMALY_URL   || '';
 
-const api = axios.create({ baseURL: BASE, timeout: 10000 });
+const api         = axios.create({ baseURL: BASE,      timeout: 15000 });
+const ingestionApi = axios.create({ baseURL: INGESTION, timeout: 15000 });
+const anomalyApi   = axios.create({ baseURL: ANOMALY,   timeout: 15000 });
 
 // ── Dashboard / Incidents ──────────────────────────────────────────────────
 
@@ -25,20 +28,16 @@ export const updateIncidentStatus = (id, status) =>
 
 // ── Logs ───────────────────────────────────────────────────────────────────
 
-const ingestionApi = axios.create({ baseURL: INGESTION, timeout: 10000 });
-
 export const getIngestionStats = () =>
-  ingestionApi.get('/api/v1/logs/stats').then(r => r.data);
+  ingestionApi.get('/api/v1/logs/stats').then(r => r.data?.data ?? r.data);
 
 export const getLogs = (params = {}) =>
-  ingestionApi.get('/api/v1/logs', { params }).then(r => r.data);
+  ingestionApi.get('/api/v1/logs', { params }).then(r => r.data?.data ?? r.data);
 
 export const getLogsByTrace = (traceId) =>
-  ingestionApi.get(`/api/v1/logs/trace/${traceId}`).then(r => r.data);
+  ingestionApi.get(`/api/v1/logs/trace/${traceId}`).then(r => r.data?.data ?? r.data);
 
 // ── Anomalies ──────────────────────────────────────────────────────────────
-
-const anomalyApi = axios.create({ baseURL: ANOMALY, timeout: 10000 });
 
 export const getAnomalyStats = () =>
   anomalyApi.get('/api/v1/anomalies/stats').then(r => r.data);
@@ -48,3 +47,11 @@ export const getAnomalies = (params = {}) =>
 
 export const updateAnomalyStatus = (id, status) =>
   anomalyApi.patch(`/api/v1/anomalies/${id}/status`, null, { params: { status } }).then(r => r.data);
+
+// ── Alerts ─────────────────────────────────────────────────────────────────
+
+export const getAlerts = (params = {}) =>
+  axios.get('/api/v1/alerts', { params, timeout: 15000 }).then(r => r.data);
+
+export const acknowledgeAlert = (id) =>
+  axios.post(`/api/v1/alerts/${id}/acknowledge`, null, { timeout: 15000 }).then(r => r.data);

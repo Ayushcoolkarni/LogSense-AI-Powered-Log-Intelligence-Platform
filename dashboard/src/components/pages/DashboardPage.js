@@ -23,31 +23,35 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            {/* KPI Row */}
+            {/* KPI Row — all cards are clickable */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
               <StatCard
                 icon={AlertTriangle} label="Open Incidents"
                 value={stats?.openIncidents ?? 0}
                 sub="Active right now"
                 color="#f97316"
+                to="/incidents?status=OPEN"
               />
               <StatCard
                 icon={Zap} label="Critical (24h)"
                 value={stats?.criticalIncidents24h ?? 0}
                 sub="Last 24 hours"
                 color="#ef4444"
+                to="/incidents?severity=CRITICAL"
               />
               <StatCard
                 icon={Activity} label="High Severity (24h)"
                 value={stats?.highIncidents24h ?? 0}
                 sub="Last 24 hours"
                 color="#eab308"
+                to="/incidents?severity=HIGH"
               />
               <StatCard
                 icon={CheckCircle} label="Resolved"
                 value={stats?.resolvedIncidents ?? 0}
                 sub="Total resolved"
                 color="#22c55e"
+                to="/incidents?status=RESOLVED"
               />
               {ingestion && (
                 <StatCard
@@ -55,17 +59,18 @@ export default function DashboardPage() {
                   value={ingestion.avgIngestionRatePerMinute?.toFixed(1) ?? '—'}
                   sub={`${ingestion.totalLogsIngested?.toLocaleString() ?? 0} total`}
                   color="#6366f1"
+                  to="/logs"
                 />
               )}
             </div>
 
-            {/* Timeline + Severity row */}
+            {/* Timeline + Severity */}
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>
               <IncidentTimeline data={stats?.hourlyTimeline || []} />
               <SeverityChart data={stats?.incidentsBySeverity ?? {}} />
             </div>
 
-            {/* Service + Type row */}
+            {/* Service + Type */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
               <ServiceBarChart data={stats?.incidentsByService ?? {}} />
               <AnomalyTypeChart data={stats?.incidentsByType ?? {}} />

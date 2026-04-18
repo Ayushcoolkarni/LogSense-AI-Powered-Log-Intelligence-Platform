@@ -84,6 +84,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_PRODUCER_COMPRESSION_TYPE: none
     depends_on:
       postgres: { condition: service_healthy }
       kafka:    { condition: service_healthy }
@@ -132,8 +133,11 @@ services:
       SPRING_DATASOURCE_USERNAME: logplatform
       SPRING_DATASOURCE_PASSWORD: logplatform123
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_AI_ENABLED: ${ANTHROPIC_AI_ENABLED:-false}
+      GEMINI_ENABLED: "true"
+      GEMINI_API_KEY: "AIzaSyARX4onmVi5umlSV8pC5KArsS253MkGPsQ"
+      GEMINI_MODEL: "gemini-2.0-flash"
+      ANTHROPIC_API_KEY: ""
+      ANTHROPIC_AI_ENABLED: "false"
     depends_on:
       postgres: { condition: service_healthy }
       kafka:    { condition: service_healthy }

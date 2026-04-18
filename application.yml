@@ -1,0 +1,83 @@
+spring:
+  application:
+    name: rca-engine-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:logsense_rca}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASS:postgres}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    consumer:
+      group-id: rca-engine-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.logsense.*"
+
+server:
+  port: 8083
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      service: rca-engine-service
+
+# ============================================================
+# AI Provider Chain Configuration
+# Priority: Gemini (primary) → Ollama (fallback) → RuleBased (backup)
+# ============================================================
+
+ai:
+
+  # ----------------------------------------------------------
+  # 1. GEMINI — FREE tier (primary)
+  #    Get your free key: https://aistudio.google.com/app/apikey
+  #    Free quota: 15 RPM, 1M TPM, 1500 RPD (no credit card)
+  # ----------------------------------------------------------
+  gemini:
+    enabled: ${GEMINI_ENABLED:false}          # set to true once you have a key
+    api-key: ${GEMINI_API_KEY:}               # AIza...
+    model: ${GEMINI_MODEL:gemini-2.0-flash}   # or gemini-1.5-flash (also free)
+    temperature: 0.3
+    max-output-tokens: 2048
+
+  # ----------------------------------------------------------
+  # 2. OLLAMA — local LLM (fallback, fully offline)
+  #    Install: https://ollama.com/download
+  #    Pull model: ollama pull llama3.2
+  #    Or add 'ollama' service to docker-compose.yml (see below)
+  # ----------------------------------------------------------
+  ollama:
+    enabled: ${OLLAMA_ENABLED:false}           # set to true if Ollama is running
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${OLLAMA_MODEL:llama3.2}            # any locally pulled model
+    temperature: 0.3
+
+  # ----------------------------------------------------------
+  # 3. RULE-BASED — always-on backup (no config needed)
+  #    Fires when both Gemini and Ollama are unavailable.
+  #    Zero dependencies, zero latency, deterministic output.
+  # ----------------------------------------------------------
+  # (no config — always enabled)
+
+# ============================================================
+# LEGACY — kept for reference only; no longer used
+# Remove ANTHROPIC_API_KEY from your env / secrets
+# ============================================================
+# anthropic:
+#   ai:
+#     enabled: false      # <-- disabled
+#     api-key: ""

@@ -32,7 +32,7 @@ public class KafkaConfig {
         props.put(ProducerConfig.ACKS_CONFIG, "all"); // strongest durability
         props.put(ProducerConfig.RETRIES_CONFIG, 3);
         props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
-        props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+        props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "none");
         props.put(ProducerConfig.LINGER_MS_CONFIG, 5);
         props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
         return new DefaultKafkaProducerFactory<>(props);

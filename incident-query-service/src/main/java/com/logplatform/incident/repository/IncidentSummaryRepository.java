@@ -27,7 +27,6 @@ public interface IncidentSummaryRepository extends JpaRepository<IncidentSummary
 
     Page<IncidentSummary> findByDetectedAtBetween(Instant from, Instant to, Pageable pageable);
 
-    // Full-text search on anomaly description + root cause summary
     @Query("""
             SELECT i FROM IncidentSummary i
             WHERE LOWER(i.anomalyDescription) LIKE LOWER(CONCAT('%', :query, '%'))
@@ -37,12 +36,12 @@ public interface IncidentSummaryRepository extends JpaRepository<IncidentSummary
             """)
     Page<IncidentSummary> searchByText(@Param("query") String query, Pageable pageable);
 
-    // Dashboard stats
     long countByStatus(String status);
 
     long countBySeverityAndDetectedAtAfter(String severity, Instant after);
 
-    @Query("SELECT i.serviceName, COUNT(i) FROM IncidentSummary i WHERE i.status = 'OPEN' GROUP BY i.serviceName ORDER BY COUNT(i) DESC")
+    // FIX: include OPEN + INVESTIGATING (RCA-enriched incidents move to INVESTIGATING)
+    @Query("SELECT i.serviceName, COUNT(i) FROM IncidentSummary i WHERE i.status IN ('OPEN', 'INVESTIGATING') GROUP BY i.serviceName ORDER BY COUNT(i) DESC")
     List<Object[]> countOpenByService();
 
     @Query("SELECT i.anomalyType, COUNT(i) FROM IncidentSummary i GROUP BY i.anomalyType ORDER BY COUNT(i) DESC")
@@ -60,7 +59,6 @@ public interface IncidentSummaryRepository extends JpaRepository<IncidentSummary
             """)
     List<IncidentSummary> findRecentOrderedBySeverity(@Param("since") Instant since, Pageable pageable);
 
-    // Timeline data: incidents bucketed by hour for charts
     @Query(value = """
             SELECT DATE_TRUNC('hour', detected_at) AS hour, COUNT(*) AS count
             FROM incident_summaries

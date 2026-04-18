@@ -1,27 +1,34 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { AlertTriangle } from 'lucide-react';
 import Header from '../layout/Header';
 import Badge from '../layout/Badge';
 import { getAnomalies, updateAnomalyStatus } from '../../services/api';
-
 
 export default function AnomaliesPage() {
   const [page, setPage] = useState(0);
   const [anomalies, setAnomalies] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
-  React.useEffect(() => {
+  const load = (p = 0) => {
     setLoading(true);
-    getAnomalies({ page, size: 20, sort: 'detectedAt,desc' })
-      .then(setAnomalies)
-      .catch(() => {})
+    setError(null);
+    getAnomalies({ page: p, size: 20, sort: 'detectedAt,desc' })
+      .then(data => { setAnomalies(data); })
+      .catch(e => setError(e?.response?.data?.message || e.message || 'Failed to connect to anomaly-detector-service'))
       .finally(() => setLoading(false));
-  }, [page]);
+  };
+
+  React.useEffect(() => { load(page); }, [page]);
 
   const items = anomalies?.content ?? [];
   const totalPages = anomalies?.totalPages ?? 0;
 
-  const acknowledge = async (id) => {
+  const acknowledge = async (e, id) => {
+    e.stopPropagation();
     await updateAnomalyStatus(id, 'ACKNOWLEDGED');
     setAnomalies(prev => ({
       ...prev,
@@ -31,45 +38,48 @@ export default function AnomaliesPage() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <Header title="Anomalies" onRefresh={() => setPage(p => p)} />
-
+      <Header title="Anomalies" onRefresh={() => load(page)} />
       <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: '#0f172a' }}>
+        {error && (
+          <div style={{ background: '#450a0a', border: '1px solid #7f1d1d', borderRadius: 8, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AlertTriangle size={16} color="#ef4444" />
+            <span style={{ color: '#fca5a5', fontSize: 13 }}>{error}</span>
+            <button onClick={() => load(page)} style={{ marginLeft: 'auto', background: '#7f1d1d', border: 'none', color: '#fca5a5', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12 }}>Retry</button>
+          </div>
+        )}
         <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #334155' }}>
-                {['Service', 'Type', 'Severity', 'Status', 'Actual / Threshold', 'Detected', 'Action'].map(h => (
+                {['Service','Type','Severity','Status','Actual / Threshold','Snapshot','Detected','Action'].map(h => (
                   <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: '#64748b', fontWeight: 500, fontSize: 12 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && !items.length ? (
-                <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#475569' }}>Loading…</td></tr>
-              ) : items.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#475569' }}>No anomalies found</td></tr>
+                <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#475569' }}>Loading...</td></tr>
+              ) : !loading && items.length === 0 && !error ? (
+                <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#475569' }}>No anomalies found</td></tr>
               ) : items.map(a => (
-                <tr key={a.id} style={{ borderBottom: '1px solid #0f172a' }}
+                <tr key={a.id} onClick={() => navigate('/incidents/' + a.id)}
+                  style={{ borderBottom: '1px solid #0f172a', cursor: 'pointer' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#0f172a'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '12px 16px', color: '#e2e8f0', fontWeight: 500 }}>{a.serviceName}</td>
-                  <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{(a.anomalyType || '').replace(/_/g, ' ')}</td>
+                  <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{(a.anomalyType||'').replace(/_/g,' ')}</td>
                   <td style={{ padding: '12px 16px' }}><Badge label={a.severity} /></td>
                   <td style={{ padding: '12px 16px' }}><Badge label={a.status} /></td>
-                  <td style={{ padding: '12px 16px', color: '#64748b', fontFamily: 'monospace', fontSize: 12 }}>
-                    {a.actualValue?.toFixed(0)} / {a.threshold?.toFixed(0)}
+                  <td style={{ padding: '12px 16px', color: '#64748b', fontFamily: 'monospace', fontSize: 12 }}>{a.actualValue?.toFixed(0)} / {a.threshold?.toFixed(0)}</td>
+                  <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 12, maxWidth: 180 }}>
+                    <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.rawLogSnapshot||'—'}</span>
                   </td>
-                  <td style={{ padding: '12px 16px', color: '#64748b' }}>
+                  <td style={{ padding: '12px 16px', color: '#64748b', whiteSpace: 'nowrap' }}>
                     {a.detectedAt ? formatDistanceToNow(parseISO(a.detectedAt), { addSuffix: true }) : '—'}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
                     {a.status === 'OPEN' && (
-                      <button onClick={() => acknowledge(a.id)} style={{
-                        background: '#172554', border: '1px solid #1e3a5f', color: '#93c5fd',
-                        borderRadius: 5, padding: '4px 10px', fontSize: 11, cursor: 'pointer',
-                      }}>
-                        Acknowledge
-                      </button>
+                      <button onClick={(e) => acknowledge(e, a.id)} style={{ background: '#172554', border: '1px solid #1e3a5f', color: '#93c5fd', borderRadius: 5, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>Ack</button>
                     )}
                   </td>
                 </tr>
@@ -77,18 +87,11 @@ export default function AnomaliesPage() {
             </tbody>
           </table>
         </div>
-
         {totalPages > 1 && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 20 }}>
-            <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-              style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>
-              ← Prev
-            </button>
-            <span style={{ color: '#64748b', alignSelf: 'center', fontSize: 13 }}>{page + 1} / {totalPages}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
-              style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>
-              Next →
-            </button>
+            <button onClick={() => setPage(p => Math.max(0,p-1))} disabled={page===0} style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>Prev</button>
+            <span style={{ color: '#64748b', alignSelf: 'center', fontSize: 13 }}>{page+1} / {totalPages}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages-1,p+1))} disabled={page>=totalPages-1} style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>Next</button>
           </div>
         )}
       </div>

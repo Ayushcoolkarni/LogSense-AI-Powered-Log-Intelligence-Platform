@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, AlertTriangle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Header from '../layout/Header';
-import Badge from '../layout/Badge';
-
 import { getLogs } from '../../services/api';
 
 const LEVELS = ['', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'];
@@ -13,19 +11,23 @@ export default function LogSearchPage() {
   const [logLevel, setLogLevel] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [page, setPage] = useState(0);
 
   const search = async (p = 0) => {
     setLoading(true);
+    setError(null);
     try {
       const params = { page: p, size: 50 };
       if (serviceName) params.serviceName = serviceName;
-      if (logLevel) params.logLevel = logLevel;
+      if (logLevel)    params.logLevel    = logLevel;
       const data = await getLogs(params);
-      setResults(data);
+      // handle both wrapped {data:{content:[]}} and plain {content:[]}
+      const normalized = data?.content ? data : (data?.data ?? data);
+      setResults(normalized);
       setPage(p);
     } catch (e) {
-      alert('Failed to load logs. Is log-ingestion-service running?');
+      setError(e?.response?.data?.message || e.message || 'Failed to connect to log-ingestion-service');
     } finally {
       setLoading(false);
     }
@@ -44,6 +46,18 @@ export default function LogSearchPage() {
       <Header title="Log Search" onRefresh={() => search(page)} />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: '#0f172a' }}>
+
+        {/* Error banner */}
+        {error && (
+          <div style={{
+            background: '#450a0a', border: '1px solid #7f1d1d', borderRadius: 8,
+            padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <AlertTriangle size={16} color="#ef4444" />
+            <span style={{ color: '#fca5a5', fontSize: 13 }}>{error}</span>
+            <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          </div>
+        )}
 
         {/* Search bar */}
         <div style={{
@@ -71,7 +85,8 @@ export default function LogSearchPage() {
               onChange={e => setLogLevel(e.target.value)}
               style={{
                 padding: '8px 10px', background: '#0f172a',
-                border: '1px solid #334155', borderRadius: 6, color: logLevel ? '#f1f5f9' : '#64748b', fontSize: 13,
+                border: '1px solid #334155', borderRadius: 6,
+                color: logLevel ? '#f1f5f9' : '#64748b', fontSize: 13,
               }}
             >
               {LEVELS.map(l => <option key={l} value={l}>{l || 'All Levels'}</option>)}
@@ -100,60 +115,44 @@ export default function LogSearchPage() {
           <div style={{ fontFamily: 'monospace' }}>
             {logs.map(log => (
               <div key={log.id} style={{
-                background: '#1e293b', border: '1px solid #1e293b',
-                borderLeft: `3px solid ${levelColor(log.logLevel)}`,
+                background: '#1e293b', borderLeft: `3px solid ${levelColor(log.logLevel)}`,
                 borderRadius: 6, padding: '10px 14px', marginBottom: 4,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-                  <span style={{ color: levelColor(log.logLevel), fontSize: 11, fontWeight: 700, minWidth: 40 }}>
-                    {log.logLevel}
-                  </span>
+                  <span style={{ color: levelColor(log.logLevel), fontSize: 11, fontWeight: 700, minWidth: 40 }}>{log.logLevel}</span>
                   <span style={{ color: '#475569', fontSize: 11 }}>
                     {log.timestamp ? format(parseISO(log.timestamp), 'dd MMM HH:mm:ss.SSS') : ''}
                   </span>
                   <span style={{ color: '#6366f1', fontSize: 11 }}>{log.serviceName}</span>
-                  {log.traceId && (
-                    <span style={{ color: '#334155', fontSize: 11 }}>trace:{log.traceId.substring(0, 8)}…</span>
-                  )}
+                  {log.traceId && <span style={{ color: '#334155', fontSize: 11 }}>trace:{log.traceId.substring(0, 8)}…</span>}
                 </div>
-                <p style={{ color: '#cbd5e1', fontSize: 12, margin: 0, lineHeight: 1.5, wordBreak: 'break-all' }}>
-                  {log.message}
-                </p>
+                <p style={{ color: '#cbd5e1', fontSize: 12, margin: 0, lineHeight: 1.5, wordBreak: 'break-all' }}>{log.message}</p>
                 {log.stackTrace && (
                   <details style={{ marginTop: 6 }}>
                     <summary style={{ color: '#ef4444', fontSize: 11, cursor: 'pointer' }}>Stack trace</summary>
-                    <pre style={{ color: '#94a3b8', fontSize: 10, margin: '6px 0 0', overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
-                      {log.stackTrace}
-                    </pre>
+                    <pre style={{ color: '#94a3b8', fontSize: 10, margin: '6px 0 0', overflowX: 'auto', whiteSpace: 'pre-wrap' }}>{log.stackTrace}</pre>
                   </details>
                 )}
               </div>
             ))}
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
                 <button onClick={() => search(Math.max(0, page - 1))} disabled={page === 0}
-                  style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>
-                  ← Prev
-                </button>
+                  style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>← Prev</button>
                 <span style={{ color: '#64748b', alignSelf: 'center', fontSize: 13 }}>{page + 1} / {totalPages}</span>
                 <button onClick={() => search(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
-                  style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>
-                  Next →
-                </button>
+                  style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>Next →</button>
               </div>
             )}
           </div>
         )}
 
-        {!loading && results && logs.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#475569', padding: 60, fontSize: 14 }}>
-            No logs found matching your criteria
-          </div>
+        {!loading && results && logs.length === 0 && !error && (
+          <div style={{ textAlign: 'center', color: '#475569', padding: 60, fontSize: 14 }}>No logs found matching your criteria</div>
         )}
 
-        {!results && !loading && (
+        {!results && !loading && !error && (
           <div style={{ textAlign: 'center', color: '#334155', padding: 60, fontSize: 14 }}>
             Enter a service name or level and press Search
           </div>

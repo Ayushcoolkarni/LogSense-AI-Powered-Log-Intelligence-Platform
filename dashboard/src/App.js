@@ -6,17 +6,7 @@ import IncidentsPage from './components/pages/IncidentsPage';
 import IncidentDetailPage from './components/pages/IncidentDetailPage';
 import AnomaliesPage from './components/pages/AnomaliesPage';
 import LogSearchPage from './components/pages/LogSearchPage';
-
-function AlertsPage() {
-  return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
-      <div style={{ textAlign: 'center', color: '#475569' }}>
-        <p style={{ fontSize: 16, marginBottom: 8 }}>Alerts Page</p>
-        <p style={{ fontSize: 13 }}>Connect to alert-service on :8084/api/v1/alerts</p>
-      </div>
-    </div>
-  );
-}
+import AlertsPage from './components/pages/AlertsPage';
 
 export default function App() {
   return (
@@ -31,13 +21,13 @@ export default function App() {
         <Sidebar />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           <Routes>
-            <Route path="/"               element={<DashboardPage />} />
-            <Route path="/incidents"      element={<IncidentsPage />} />
+            <Route path="/"                     element={<DashboardPage />} />
+            <Route path="/incidents"            element={<IncidentsPage />} />
             <Route path="/incidents/:anomalyId" element={<IncidentDetailPage />} />
-            <Route path="/anomalies"      element={<AnomaliesPage />} />
-            <Route path="/logs"           element={<LogSearchPage />} />
-            <Route path="/alerts"         element={<AlertsPage />} />
-            <Route path="*"              element={<Navigate to="/" replace />} />
+            <Route path="/anomalies"            element={<AnomaliesPage />} />
+            <Route path="/logs"                 element={<LogSearchPage />} />
+            <Route path="/alerts"               element={<AlertsPage />} />
+            <Route path="*"                     element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </div>
