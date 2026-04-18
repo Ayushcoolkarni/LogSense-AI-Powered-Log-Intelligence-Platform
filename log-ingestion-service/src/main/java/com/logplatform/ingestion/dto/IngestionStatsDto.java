@@ -1,5 +1,9 @@
 package com.logplatform.ingestion.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.datatype.jsr310.deser.InstantDeserializer;
+import com.fasterxml.jackson.datatype.jsr310.ser.InstantSerializer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,6 +22,10 @@ public class IngestionStatsDto {
     private Map<String, Long> logsByService;
     private long logsInLastHour;
     private long logsInLastDay;
+
+    @JsonSerialize(using = InstantSerializer.class)      // ← inside class, on the field
+    @JsonDeserialize(using = InstantDeserializer.class)  // ← inside class, on the field
     private Instant lastIngestedAt;
+
     private double avgIngestionRatePerMinute;
 }

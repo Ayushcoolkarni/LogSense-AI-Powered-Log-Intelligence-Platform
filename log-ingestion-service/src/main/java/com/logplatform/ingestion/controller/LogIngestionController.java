@@ -23,8 +23,7 @@ public class LogIngestionController {
 
     private final LogIngestionService logIngestionService;
 
-    // 🔥 ADD THIS
-    private final KafkaTemplate<String, LogEntry> kafkaTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
     /**
      * Ingest a single log entry
@@ -36,7 +35,7 @@ public class LogIngestionController {
 
         // 🔥 SEND TO KAFKA
         try {
-            kafkaTemplate.send("raw-logs", saved);
+            kafkaTemplate.send("raw-logs", saved.toString());
         } catch (Exception e) {
             log.error("Kafka publish failed: {}", e.getMessage());
         }
@@ -56,7 +55,7 @@ public class LogIngestionController {
         // 🔥 SEND EACH TO KAFKA
         saved.forEach(logEntry -> {
             try {
-                kafkaTemplate.send("raw-logs", logEntry);
+                kafkaTemplate.send("raw-logs", logEntry.toString());
             } catch (Exception e) {
                 log.error("Kafka batch publish failed: {}", e.getMessage());
             }

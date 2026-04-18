@@ -12,6 +12,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import com.logplatform.ingestion.model.LogEntry;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,9 +39,9 @@ public class KafkaConfig {
     }
 
     @Bean
-    public KafkaTemplate<String, String> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
-    }
+public KafkaTemplate<String, String> kafkaTemplate() { // ← change this
+    return new KafkaTemplate<>(producerFactory());
+}
 
     @Bean
     public KafkaAdmin kafkaAdmin() {
