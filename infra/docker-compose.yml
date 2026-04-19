@@ -1,220 +1,128 @@
-
+version: "3.9"
 
 services:
 
-  # ── Infrastructure ──────────────────────────────────────────────────────────
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: logplatform-postgres
-    environment:
-      POSTGRES_DB: logplatform
-      POSTGRES_USER: logplatform
-      POSTGRES_PASSWORD: logplatform123
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logplatform"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: logplatform-redis
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
-    container_name: logplatform-zookeeper
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
-    container_name: logplatform-kafka
-    depends_on: [zookeeper]
+    container_name: kafka
+    depends_on:
+      - zookeeper
     ports:
       - "9092:9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
 
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: logplatform-kafka-ui
-    ports:
-      - "8090:8080"
+  postgres:
+    image: postgres:15
+    container_name: logsense-postgres
     environment:
-      KAFKA_CLUSTERS_0_NAME: logplatform
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-    depends_on: [kafka]
+      POSTGRES_DB: logsense
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
 
-  # ── Microservices ────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7
+    container_name: logsense-redis
+    ports:
+      - "6379:6379"
 
   log-ingestion-service:
     build:
-      context: ./log-ingestion-service
+      context: ../services/log-ingestion-service
     container_name: log-ingestion-service
-    ports:
-      - "8081:8081"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logplatform
-      SPRING_DATASOURCE_USERNAME: logplatform
-      SPRING_DATASOURCE_PASSWORD: logplatform123
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_KAFKA_PRODUCER_COMPRESSION_TYPE: none
     depends_on:
-      postgres: { condition: service_healthy }
-      kafka:    { condition: service_healthy }
-      redis:    { condition: service_healthy }
-    restart: on-failure
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
+      - kafka
+      - postgres
+      - redis
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logsense
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8081:8080"
 
   anomaly-detector-service:
     build:
-      context: ./anomaly-detector-service
+      context: ../services/anomaly-detector-service
     container_name: anomaly-detector-service
-    ports:
-      - "8082:8082"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logplatform
-      SPRING_DATASOURCE_USERNAME: logplatform
-      SPRING_DATASOURCE_PASSWORD: logplatform123
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
     depends_on:
-      postgres: { condition: service_healthy }
-      kafka:    { condition: service_healthy }
-      redis:    { condition: service_healthy }
-    restart: on-failure
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
+      - kafka
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logsense
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8082:8080"
 
   rca-engine-service:
     build:
-      context: ./rca-engine-service
+      context: ../services/rca-engine-service
     container_name: rca-engine-service
-    ports:
-      - "8083:8083"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logplatform
-      SPRING_DATASOURCE_USERNAME: logplatform
-      SPRING_DATASOURCE_PASSWORD: logplatform123
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      GEMINI_ENABLED: "true"
-      GEMINI_API_KEY: "AIzaSyARX4onmVi5umlSV8pC5KArsS253MkGPsQ"
-      GEMINI_MODEL: "gemini-2.0-flash"
-      ANTHROPIC_API_KEY: ""
-      ANTHROPIC_AI_ENABLED: "false"
     depends_on:
-      postgres: { condition: service_healthy }
-      kafka:    { condition: service_healthy }
-    restart: on-failure
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
+      - kafka
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logsense
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    ports:
+      - "8083:8080"
 
   alert-service:
     build:
-      context: ./alert-service
+      context: ../services/alert-service
     container_name: alert-service
-    ports:
-      - "8084:8084"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logplatform
-      SPRING_DATASOURCE_USERNAME: logplatform
-      SPRING_DATASOURCE_PASSWORD: logplatform123
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      SLACK_ENABLED: ${SLACK_ENABLED:-false}
-      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
-      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
-      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-ops@company.com}
     depends_on:
-      postgres: { condition: service_healthy }
-      kafka:    { condition: service_healthy }
-    restart: on-failure
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
+      - kafka
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logsense
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8084:8080"
 
   incident-query-service:
     build:
-      context: ./incident-query-service
+      context: ../services/incident-query-service
     container_name: incident-query-service
-    ports:
-      - "8085:8085"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logplatform
-      SPRING_DATASOURCE_USERNAME: logplatform
-      SPRING_DATASOURCE_PASSWORD: logplatform123
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SERVICES_ANOMALY-DETECTOR_URL: http://anomaly-detector-service:8082
-      SERVICES_RCA-ENGINE_URL: http://rca-engine-service:8083
-      SERVICES_ALERT_URL: http://alert-service:8084
     depends_on:
-      postgres:                 { condition: service_healthy }
-      redis:                    { condition: service_healthy }
-      anomaly-detector-service: { condition: service_started }
-      rca-engine-service:       { condition: service_started }
-      alert-service:            { condition: service_started }
-    restart: on-failure
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-
-  # ── React Dashboard ──────────────────────────────────────────────────────────
-
-  dashboard:
-    build:
-      context: ./dashboard
-    container_name: logplatform-dashboard
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logsense
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
     ports:
-      - "3000:3000"
+      - "8085:8080"
+
+  frontend:
+    build:
+      context: ../frontend/dashboard
+    container_name: logsense-frontend
     depends_on:
       - incident-query-service
-    restart: on-failure
+    ports:
+      - "3000:80"
 
-volumes:
-  postgres_data:
+networks:
+  default:
+    name: logsense-network
