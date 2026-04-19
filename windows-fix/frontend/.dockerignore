@@ -1,0 +1,5 @@
+node_modules
+.git
+*.md
+seed.js
+dashboard/node_modules

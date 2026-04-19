@@ -1,0 +1,6 @@
+node_modules
+.git
+*.md
+seed.js
+package-lock.json
+dashboard/node_modules
