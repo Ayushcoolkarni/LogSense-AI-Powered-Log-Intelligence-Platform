@@ -13,10 +13,11 @@ services:
     ports:
       - "2181:2181"
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      test: ["CMD", "bash", "-c", "echo srvr | nc localhost 2181 | grep -q Mode"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
@@ -67,6 +68,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Ollama runs independently — no healthcheck blocking other services
+  # rca-engine-service connects when available, falls back to rule-based if not ready
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
 
   # ── Application Services ───────────────────────────────────────────────────
 
@@ -143,6 +155,9 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
+      OLLAMA_ENABLED: "true"
+      OLLAMA_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "llama3.2"
     ports:
       - "8083:8083"
     healthcheck:
@@ -169,6 +184,7 @@ services:
       SLACK_ENABLED: ${SLACK_ENABLED:-false}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-ops@company.com}
@@ -224,9 +240,21 @@ services:
     ports:
       - "3000:3000"
 
+  log-simulator:
+    build:
+      context: ../simulator
+    container_name: log-simulator
+    depends_on:
+      log-ingestion-service:
+        condition: service_healthy
+    environment:
+      INGESTION_URL: http://log-ingestion-service:8081/api/v1/logs
+    restart: unless-stopped
+
 networks:
   default:
     name: logsense-network
 
 volumes:
   postgres-data:
+  ollama-data:

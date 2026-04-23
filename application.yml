@@ -1,41 +1,64 @@
 server:
-  port: 8081
+  port: 8083
 
 spring:
   application:
-    name: log-ingestion-service
+    name: rca-engine-service
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/logplatform}
     username: ${SPRING_DATASOURCE_USERNAME:logplatform}
     password: ${SPRING_DATASOURCE_PASSWORD:logplatform123}
+    hikari:
+      maximum-pool-size: 10
 
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
-
-  data:
-    redis:
-      host: ${SPRING_DATA_REDIS_HOST:localhost}
-      port: ${SPRING_DATA_REDIS_PORT:6379}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: rca-engine
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+  task:
+    execution:
+      pool:
+        core-size: 4
+        max-size: 10
+        queue-capacity: 50
 
 kafka:
   topics:
-    raw-logs: raw-logs
-    error-logs: error-logs
+    anomaly-events: anomaly-events
+
+# ── Ollama (offline local LLM) ─────────────────────────────────────────────
+# Enable via docker-compose: OLLAMA_ENABLED=true
+# Model is auto-pulled on first start (~2GB for llama3.2)
+ollama:
+  enabled: ${OLLAMA_ENABLED:false}
+  url:     ${OLLAMA_URL:http://ollama:11434}
+  model:   ${OLLAMA_MODEL:llama3.2}
+
+# ── Gemini (online, free tier) ─────────────────────────────────────────────
+# Enable via docker-compose: GEMINI_ENABLED=true + GEMINI_API_KEY=AIza...
+gemini:
+  api:
+    enabled: ${GEMINI_ENABLED:false}
+    key:     ${GEMINI_API_KEY:}
+    model:   ${GEMINI_MODEL:gemini-2.0-flash}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
 
 logging:
   level:

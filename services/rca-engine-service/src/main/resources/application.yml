@@ -38,17 +38,21 @@ kafka:
   topics:
     anomaly-events: anomaly-events
 
+# ── Ollama (offline local LLM) ─────────────────────────────────────────────
+# Enable via docker-compose: OLLAMA_ENABLED=true
+# Model is auto-pulled on first start (~2GB for llama3.2)
+ollama:
+  enabled: ${OLLAMA_ENABLED:false}
+  url:     ${OLLAMA_URL:http://ollama:11434}
+  model:   ${OLLAMA_MODEL:llama3.2}
+
+# ── Gemini (online, free tier) ─────────────────────────────────────────────
+# Enable via docker-compose: GEMINI_ENABLED=true + GEMINI_API_KEY=AIza...
 gemini:
   api:
     enabled: ${GEMINI_ENABLED:false}
-    key: ${GEMINI_API_KEY:}
-    model: ${GEMINI_MODEL:gemini-2.0-flash}
-
-anthropic:
-  api:
-    key: ${ANTHROPIC_API_KEY:}
-    model: claude-opus-4-20250514
-    enabled: false
+    key:     ${GEMINI_API_KEY:}
+    model:   ${GEMINI_MODEL:gemini-2.0-flash}
 
 management:
   endpoints:

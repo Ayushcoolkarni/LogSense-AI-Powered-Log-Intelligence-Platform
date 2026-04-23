@@ -1,5 +1,12 @@
 node_modules
+<<<<<<< HEAD
 **/node_modules
 seed.js
 package-lock.json
 *.md
+=======
+build
+.env
+.env.*
+*.log
+>>>>>>> 84a0da6 (Added Log Simulator)
